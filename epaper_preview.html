@@ -193,6 +193,14 @@
       >
       px
 
+      <label class="color-item">
+        <input
+          id="fitToInputCheckbox"
+          type="checkbox"
+        >
+        入力サイズに合わせる
+      </label>
+
     </div>
 
   </div>
@@ -470,6 +478,9 @@ const widthInput =
 const heightInput =
   document.getElementById("heightInput");
 
+const fitToInputCheckbox =
+  document.getElementById("fitToInputCheckbox");
+
 const ditherMode =
   document.getElementById("ditherMode");
 
@@ -574,6 +585,19 @@ function applyCanvasSize() {
 
 function updateSize() {
 
+  if (
+    fitToInputCheckbox.checked &&
+    sourceImage
+  ) {
+
+    widthInput.value =
+      sourceImage.naturalWidth;
+
+    heightInput.value =
+      sourceImage.naturalHeight;
+
+  }
+
   const width =
     Math.max(
       1,
@@ -629,6 +653,31 @@ heightInput.addEventListener(
   "change",
   updateSize
 );
+
+
+function syncSizeInputsDisabled() {
+
+  widthInput.disabled =
+    fitToInputCheckbox.checked;
+
+  heightInput.disabled =
+    fitToInputCheckbox.checked;
+
+}
+
+
+fitToInputCheckbox.addEventListener(
+  "change",
+  () => {
+
+    syncSizeInputsDisabled();
+    updateSize();
+
+  }
+);
+
+
+syncSizeInputsDisabled();
 
 
 function updateColorCode() {
@@ -692,6 +741,26 @@ fileInput.addEventListener(
 
       sourceImage =
         await loadImage(file);
+
+      if (
+        fitToInputCheckbox.checked
+      ) {
+
+        widthInput.value =
+          sourceImage.naturalWidth;
+
+        heightInput.value =
+          sourceImage.naturalHeight;
+
+        WIDTH =
+          sourceImage.naturalWidth;
+
+        HEIGHT =
+          sourceImage.naturalHeight;
+
+        applyCanvasSize();
+
+      }
 
       drawImageToCanvas(
         sourceImage,
