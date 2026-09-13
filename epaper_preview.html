@@ -1,0 +1,2032 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>6色 e-Paper Dithering Converter</title>
+
+<style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 24px;
+    font-family:
+      -apple-system,
+      BlinkMacSystemFont,
+      "Segoe UI",
+      sans-serif;
+    background: #f3f3f3;
+    color: #222;
+  }
+
+  h1 {
+    margin-top: 0;
+    font-size: 24px;
+  }
+
+  .panel {
+    max-width: 1100px;
+    padding: 20px;
+    margin-bottom: 24px;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 10px;
+  }
+
+  .row {
+    margin-bottom: 20px;
+  }
+
+  .row:last-child {
+    margin-bottom: 0;
+  }
+
+  .title {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+
+  .colors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+  }
+
+  .color-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-weight: normal;
+  }
+
+  select,
+  button,
+  input {
+    font-size: 15px;
+  }
+
+  select {
+    min-width: 240px;
+    padding: 7px;
+  }
+
+  input[type="range"] {
+    width: 320px;
+    max-width: 100%;
+  }
+
+  button {
+    padding: 9px 16px;
+    cursor: pointer;
+  }
+
+  button + button {
+    margin-left: 8px;
+  }
+
+  button:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  .description {
+    margin-top: 7px;
+    color: #666;
+    font-size: 13px;
+  }
+
+  .value {
+    font-family: monospace;
+  }
+
+  .preview {
+    display: flex;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 24px;
+  }
+
+  .preview-block {
+    flex: 0 1 auto;
+  }
+
+  .preview-block h2 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 18px;
+  }
+
+  canvas {
+    display: block;
+    width: 480px;
+    height: 720px;
+    max-width: 100%;
+    border: 1px solid #888;
+    background: white;
+  }
+
+  #status {
+    margin-top: 12px;
+    font-family: monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+  }
+</style>
+</head>
+
+<body>
+
+<h1>6色 e-Paper Dithering Converter</h1>
+
+<div class="panel">
+
+  <div class="row">
+    <label class="title" for="fileInput">
+      入力画像
+    </label>
+
+    <input
+      id="fileInput"
+      type="file"
+      accept="image/png,image/jpeg"
+    >
+  </div>
+
+
+  <div class="row">
+
+    <span class="title">
+      使用色
+    </span>
+
+    <div class="colors">
+
+      <label class="color-item">
+        <input
+          type="checkbox"
+          class="colorCheck"
+          value="w"
+          checked
+        >
+        White
+      </label>
+
+      <label class="color-item">
+        <input
+          type="checkbox"
+          class="colorCheck"
+          value="k"
+          checked
+        >
+        Black
+      </label>
+
+      <label class="color-item">
+        <input
+          type="checkbox"
+          class="colorCheck"
+          value="r"
+          checked
+        >
+        Red
+      </label>
+
+      <label class="color-item">
+        <input
+          type="checkbox"
+          class="colorCheck"
+          value="y"
+          checked
+        >
+        Yellow
+      </label>
+
+      <label class="color-item">
+        <input
+          type="checkbox"
+          class="colorCheck"
+          value="b"
+          checked
+        >
+        Blue
+      </label>
+
+      <label class="color-item">
+        <input
+          type="checkbox"
+          class="colorCheck"
+          value="g"
+          checked
+        >
+        Green
+      </label>
+
+    </div>
+
+    <div class="description">
+      色コード:
+      <span id="colorCode" class="value">wkrybg</span>
+    </div>
+
+  </div>
+
+
+  <div class="row">
+
+    <label
+      for="ditherMode"
+      class="title"
+    >
+      Dithering
+    </label>
+
+    <select id="ditherMode">
+      <option value="fs">
+        fs — Floyd–Steinberg
+      </option>
+
+      <option value="bayer">
+        bayer — Bayer 4×4
+      </option>
+
+      <option value="blue-noise">
+        blue-noise — Blue Noise
+      </option>
+
+      <option value="pattern">
+        pattern — Pattern Dithering
+      </option>
+
+      <option value="none">
+        none — No Dithering
+      </option>
+    </select>
+
+    <div
+      id="modeDescription"
+      class="description"
+    ></div>
+
+  </div>
+
+
+  <div
+    class="row"
+    id="strengthRow"
+  >
+
+    <label
+      for="ditherStrength"
+      class="title"
+    >
+      Floyd–Steinberg 強度:
+      <span
+        id="strengthValue"
+        class="value"
+      >1.00</span>
+    </label>
+
+    <input
+      id="ditherStrength"
+      type="range"
+      min="0"
+      max="1"
+      step="0.05"
+      value="1"
+    >
+
+    <div class="description">
+      0.00 = 誤差拡散なし /
+      1.00 = 標準 Floyd–Steinberg
+    </div>
+
+  </div>
+
+
+  <div class="row">
+
+    <button id="convertButton">
+      変換
+    </button>
+
+    <button
+      id="downloadButton"
+      disabled
+    >
+      PNG保存
+    </button>
+
+  </div>
+
+  <div id="status"></div>
+
+</div>
+
+
+<div class="preview">
+
+  <div class="preview-block">
+
+    <h2>
+      変換前
+    </h2>
+
+    <canvas
+      id="sourceCanvas"
+      width="480"
+      height="720"
+    ></canvas>
+
+  </div>
+
+
+  <div class="preview-block">
+
+    <h2>
+      変換後
+    </h2>
+
+    <canvas
+      id="outputCanvas"
+      width="480"
+      height="720"
+    ></canvas>
+
+  </div>
+
+</div>
+
+
+<script>
+"use strict";
+
+
+/* =========================================================
+ * 基本設定
+ * ========================================================= */
+
+const WIDTH = 480;
+const HEIGHT = 720;
+
+
+const COLOR_TABLE = {
+
+  w: {
+    name: "White",
+    rgb: [255, 255, 255]
+  },
+
+  k: {
+    name: "Black",
+    rgb: [0, 0, 0]
+  },
+
+  r: {
+    name: "Red",
+    rgb: [255, 0, 0]
+  },
+
+  y: {
+    name: "Yellow",
+    rgb: [255, 255, 0]
+  },
+
+  b: {
+    name: "Blue",
+    rgb: [0, 0, 255]
+  },
+
+  g: {
+    name: "Green",
+    rgb: [0, 255, 0]
+  }
+
+};
+
+
+const BAYER_4X4 = [
+  [ 0,  8,  2, 10],
+  [12,  4, 14,  6],
+  [ 3, 11,  1,  9],
+  [15,  7, 13,  5]
+];
+
+
+/* =========================================================
+ * DOM
+ * ========================================================= */
+
+const fileInput =
+  document.getElementById("fileInput");
+
+const ditherMode =
+  document.getElementById("ditherMode");
+
+const ditherStrength =
+  document.getElementById("ditherStrength");
+
+const strengthValue =
+  document.getElementById("strengthValue");
+
+const strengthRow =
+  document.getElementById("strengthRow");
+
+const modeDescription =
+  document.getElementById("modeDescription");
+
+const convertButton =
+  document.getElementById("convertButton");
+
+const downloadButton =
+  document.getElementById("downloadButton");
+
+const sourceCanvas =
+  document.getElementById("sourceCanvas");
+
+const sourceCtx =
+  sourceCanvas.getContext("2d");
+
+const outputCanvas =
+  document.getElementById("outputCanvas");
+
+const outputCtx =
+  outputCanvas.getContext("2d");
+
+const colorCode =
+  document.getElementById("colorCode");
+
+const status =
+  document.getElementById("status");
+
+const colorChecks =
+  [...document.querySelectorAll(".colorCheck")];
+
+
+let sourceImage = null;
+
+
+/* =========================================================
+ * UI
+ * ========================================================= */
+
+const MODE_DESCRIPTIONS = {
+
+  fs:
+    "量子化誤差を周囲の未処理画素へ拡散します。写真の階調を残しやすい方式です。",
+
+  bayer:
+    "固定された4×4 Bayerしきい値行列を使用します。規則的でレトロな網点模様になります。",
+
+  "blue-noise":
+    "空間的に偏りにくい疑似Blue-noiseマスクを使用します。FSより方向性が少ない粒状表現になります。",
+
+  pattern:
+    "近い2色を選び、4×4パターン内で混色します。印刷物やドット絵に近い規則的な表現です。",
+
+  none:
+    "各画素を最も近いパレット色へ直接変換します。ディザリングは行いません。"
+
+};
+
+
+function updateModeUI() {
+
+  const mode =
+    ditherMode.value;
+
+  modeDescription.textContent =
+    MODE_DESCRIPTIONS[mode];
+
+  strengthRow.style.display =
+    mode === "fs"
+      ? "block"
+      : "none";
+}
+
+
+function updateColorCode() {
+
+  const code =
+    colorChecks
+      .filter(x => x.checked)
+      .map(x => x.value)
+      .join("");
+
+  colorCode.textContent =
+    code || "(none)";
+}
+
+
+ditherMode.addEventListener(
+  "change",
+  updateModeUI
+);
+
+
+ditherStrength.addEventListener(
+  "input",
+  () => {
+
+    strengthValue.textContent =
+      Number(
+        ditherStrength.value
+      ).toFixed(2);
+
+  }
+);
+
+
+for (const checkbox of colorChecks) {
+
+  checkbox.addEventListener(
+    "change",
+    updateColorCode
+  );
+
+}
+
+
+/* =========================================================
+ * 画像読み込み
+ * ========================================================= */
+
+fileInput.addEventListener(
+  "change",
+  async event => {
+
+    const file =
+      event.target.files[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+
+      sourceImage =
+        await loadImage(file);
+
+      drawImageToCanvas(
+        sourceImage,
+        sourceCtx
+      );
+
+      /*
+       * 変換後Canvasにも初期状態として
+       * 元画像を表示しておく。
+       */
+      drawImageToCanvas(
+        sourceImage,
+        outputCtx
+      );
+
+      downloadButton.disabled =
+        true;
+
+      status.textContent =
+        `Loaded : ${file.name}\n` +
+        `Source : ${sourceImage.naturalWidth} × ${sourceImage.naturalHeight}\n` +
+        `Preview: ${WIDTH} × ${HEIGHT}`;
+
+    } catch (error) {
+
+      console.error(error);
+
+      alert(
+        "画像の読み込みに失敗しました。"
+      );
+
+    }
+
+  }
+);
+
+
+function loadImage(file) {
+
+  return new Promise(
+    (resolve, reject) => {
+
+      const reader =
+        new FileReader();
+
+      reader.onload =
+        () => {
+
+          const image =
+            new Image();
+
+          image.onload =
+            () => resolve(image);
+
+          image.onerror =
+            reject;
+
+          image.src =
+            reader.result;
+        };
+
+      reader.onerror =
+        reject;
+
+      reader.readAsDataURL(
+        file
+      );
+
+    }
+  );
+
+}
+
+
+/* =========================================================
+ * リサイズ + 中央クロップ
+ * ========================================================= */
+
+function drawImageToCanvas(
+  image,
+  context
+) {
+
+  context.clearRect(
+    0,
+    0,
+    WIDTH,
+    HEIGHT
+  );
+
+
+  const srcWidth =
+    image.naturalWidth;
+
+  const srcHeight =
+    image.naturalHeight;
+
+  const srcRatio =
+    srcWidth / srcHeight;
+
+  const targetRatio =
+    WIDTH / HEIGHT;
+
+
+  let sx;
+  let sy;
+  let sw;
+  let sh;
+
+
+  if (srcRatio > targetRatio) {
+
+    /*
+     * 横長:
+     * 左右をカット
+     */
+
+    sh =
+      srcHeight;
+
+    sw =
+      srcHeight *
+      targetRatio;
+
+    sx =
+      (srcWidth - sw) / 2;
+
+    sy =
+      0;
+
+  } else {
+
+    /*
+     * 縦長:
+     * 上下をカット
+     */
+
+    sw =
+      srcWidth;
+
+    sh =
+      srcWidth /
+      targetRatio;
+
+    sx =
+      0;
+
+    sy =
+      (srcHeight - sh) / 2;
+
+  }
+
+
+  context.drawImage(
+    image,
+
+    sx,
+    sy,
+    sw,
+    sh,
+
+    0,
+    0,
+    WIDTH,
+    HEIGHT
+  );
+
+}
+
+
+/* =========================================================
+ * パレット
+ * ========================================================= */
+
+function getSelectedPalette() {
+
+  return colorChecks
+
+    .filter(
+      checkbox =>
+        checkbox.checked
+    )
+
+    .map(
+      checkbox => ({
+
+        code:
+          checkbox.value,
+
+        name:
+          COLOR_TABLE[
+            checkbox.value
+          ].name,
+
+        rgb:
+          COLOR_TABLE[
+            checkbox.value
+          ].rgb
+
+      })
+    );
+
+}
+
+
+/* =========================================================
+ * 色距離
+ * ========================================================= */
+
+function colorDistanceSquared(
+  r1,
+  g1,
+  b1,
+  r2,
+  g2,
+  b2
+) {
+
+  const dr =
+    r1 - r2;
+
+  const dg =
+    g1 - g2;
+
+  const db =
+    b1 - b2;
+
+  return (
+    dr * dr +
+    dg * dg +
+    db * db
+  );
+
+}
+
+
+function nearestColor(
+  r,
+  g,
+  b,
+  palette
+) {
+
+  let best =
+    palette[0];
+
+  let bestDistance =
+    Infinity;
+
+
+  for (
+    const item
+    of palette
+  ) {
+
+    const color =
+      item.rgb;
+
+    const distance =
+      colorDistanceSquared(
+        r,
+        g,
+        b,
+        color[0],
+        color[1],
+        color[2]
+      );
+
+
+    if (
+      distance <
+      bestDistance
+    ) {
+
+      bestDistance =
+        distance;
+
+      best =
+        item;
+
+    }
+
+  }
+
+
+  return best;
+
+}
+
+
+/*
+ * 近い2色
+ */
+function twoNearestColors(
+  r,
+  g,
+  b,
+  palette
+) {
+
+  const list =
+    palette.map(
+      item => ({
+
+        item,
+
+        distance:
+          colorDistanceSquared(
+            r,
+            g,
+            b,
+            item.rgb[0],
+            item.rgb[1],
+            item.rgb[2]
+          )
+
+      })
+    );
+
+
+  list.sort(
+    (a, b) =>
+      a.distance -
+      b.distance
+  );
+
+
+  return [
+    list[0].item,
+    list[
+      Math.min(
+        1,
+        list.length - 1
+      )
+    ].item
+  ];
+
+}
+
+
+/* =========================================================
+ * Utility
+ * ========================================================= */
+
+function clamp255(value) {
+
+  return Math.max(
+    0,
+    Math.min(
+      255,
+      value
+    )
+  );
+
+}
+
+
+function setPixel(
+  data,
+  index,
+  color
+) {
+
+  data[index] =
+    color[0];
+
+  data[index + 1] =
+    color[1];
+
+  data[index + 2] =
+    color[2];
+
+  data[index + 3] =
+    255;
+
+}
+
+
+/* =========================================================
+ * NONE
+ * ========================================================= */
+
+function ditherNone(
+  imageData,
+  palette
+) {
+
+  const data =
+    imageData.data;
+
+
+  for (
+    let i = 0;
+    i < data.length;
+    i += 4
+  ) {
+
+    const color =
+      nearestColor(
+        data[i],
+        data[i + 1],
+        data[i + 2],
+        palette
+      ).rgb;
+
+
+    setPixel(
+      data,
+      i,
+      color
+    );
+
+  }
+
+
+  return imageData;
+
+}
+
+
+/* =========================================================
+ * Floyd-Steinberg
+ * ========================================================= */
+
+function ditherFS(
+  imageData,
+  palette,
+  strength
+) {
+
+  const width =
+    imageData.width;
+
+  const height =
+    imageData.height;
+
+  const output =
+    imageData.data;
+
+
+  const pixels =
+    new Float32Array(
+      output.length
+    );
+
+
+  for (
+    let i = 0;
+    i < output.length;
+    i++
+  ) {
+
+    pixels[i] =
+      output[i];
+
+  }
+
+
+  for (
+    let y = 0;
+    y < height;
+    y++
+  ) {
+
+    for (
+      let x = 0;
+      x < width;
+      x++
+    ) {
+
+      const index =
+        (
+          y * width +
+          x
+        ) * 4;
+
+
+      const oldR =
+        pixels[index];
+
+      const oldG =
+        pixels[index + 1];
+
+      const oldB =
+        pixels[index + 2];
+
+
+      const selected =
+        nearestColor(
+          oldR,
+          oldG,
+          oldB,
+          palette
+        ).rgb;
+
+
+      const newR =
+        selected[0];
+
+      const newG =
+        selected[1];
+
+      const newB =
+        selected[2];
+
+
+      pixels[index] =
+        newR;
+
+      pixels[index + 1] =
+        newG;
+
+      pixels[index + 2] =
+        newB;
+
+
+      const errorR =
+        (
+          oldR -
+          newR
+        ) * strength;
+
+      const errorG =
+        (
+          oldG -
+          newG
+        ) * strength;
+
+      const errorB =
+        (
+          oldB -
+          newB
+        ) * strength;
+
+
+      if (
+        x + 1 <
+        width
+      ) {
+
+        addError(
+          pixels,
+          index + 4,
+          errorR,
+          errorG,
+          errorB,
+          7 / 16
+        );
+
+      }
+
+
+      if (
+        y + 1 <
+        height
+      ) {
+
+        if (x > 0) {
+
+          addError(
+            pixels,
+            index +
+            width * 4 -
+            4,
+            errorR,
+            errorG,
+            errorB,
+            3 / 16
+          );
+
+        }
+
+
+        addError(
+          pixels,
+          index +
+          width * 4,
+          errorR,
+          errorG,
+          errorB,
+          5 / 16
+        );
+
+
+        if (
+          x + 1 <
+          width
+        ) {
+
+          addError(
+            pixels,
+            index +
+            width * 4 +
+            4,
+            errorR,
+            errorG,
+            errorB,
+            1 / 16
+          );
+
+        }
+
+      }
+
+    }
+
+  }
+
+
+  for (
+    let i = 0;
+    i < output.length;
+    i += 4
+  ) {
+
+    output[i] =
+      Math.round(
+        clamp255(
+          pixels[i]
+        )
+      );
+
+    output[i + 1] =
+      Math.round(
+        clamp255(
+          pixels[i + 1]
+        )
+      );
+
+    output[i + 2] =
+      Math.round(
+        clamp255(
+          pixels[i + 2]
+        )
+      );
+
+    output[i + 3] =
+      255;
+
+  }
+
+
+  return imageData;
+
+}
+
+
+function addError(
+  pixels,
+  index,
+  er,
+  eg,
+  eb,
+  factor
+) {
+
+  pixels[index] =
+    clamp255(
+      pixels[index] +
+      er * factor
+    );
+
+  pixels[index + 1] =
+    clamp255(
+      pixels[index + 1] +
+      eg * factor
+    );
+
+  pixels[index + 2] =
+    clamp255(
+      pixels[index + 2] +
+      eb * factor
+    );
+
+}
+
+
+/* =========================================================
+ * Bayer
+ * ========================================================= */
+
+function ditherBayer(
+  imageData,
+  palette
+) {
+
+  const data =
+    imageData.data;
+
+  const width =
+    imageData.width;
+
+  const height =
+    imageData.height;
+
+  const amplitude =
+    64;
+
+
+  for (
+    let y = 0;
+    y < height;
+    y++
+  ) {
+
+    for (
+      let x = 0;
+      x < width;
+      x++
+    ) {
+
+      const index =
+        (
+          y * width +
+          x
+        ) * 4;
+
+
+      const matrixValue =
+        BAYER_4X4[
+          y % 4
+        ][
+          x % 4
+        ];
+
+
+      const threshold =
+        (
+          matrixValue +
+          0.5
+        ) / 16 -
+        0.5;
+
+
+      const adjustment =
+        threshold *
+        amplitude;
+
+
+      const r =
+        clamp255(
+          data[index] +
+          adjustment
+        );
+
+      const g =
+        clamp255(
+          data[index + 1] +
+          adjustment
+        );
+
+      const b =
+        clamp255(
+          data[index + 2] +
+          adjustment
+        );
+
+
+      const selected =
+        nearestColor(
+          r,
+          g,
+          b,
+          palette
+        ).rgb;
+
+
+      setPixel(
+        data,
+        index,
+        selected
+      );
+
+    }
+
+  }
+
+
+  return imageData;
+
+}
+
+
+/* =========================================================
+ * Blue-noise-like
+ * ========================================================= */
+
+function hash2D(
+  x,
+  y
+) {
+
+  let h =
+    (
+      x * 374761393 +
+      y * 668265263
+    ) >>> 0;
+
+  h =
+    (
+      h ^
+      (h >>> 13)
+    ) >>> 0;
+
+  h =
+    Math.imul(
+      h,
+      1274126177
+    ) >>> 0;
+
+  h =
+    (
+      h ^
+      (h >>> 16)
+    ) >>> 0;
+
+
+  return (
+    h /
+    4294967295
+  );
+
+}
+
+
+function blueNoiseValue(
+  x,
+  y
+) {
+
+  const center =
+    hash2D(
+      x,
+      y
+    );
+
+
+  let neighborhood =
+    0;
+
+
+  neighborhood +=
+    hash2D(
+      x - 1,
+      y
+    );
+
+  neighborhood +=
+    hash2D(
+      x + 1,
+      y
+    );
+
+  neighborhood +=
+    hash2D(
+      x,
+      y - 1
+    );
+
+  neighborhood +=
+    hash2D(
+      x,
+      y + 1
+    );
+
+
+  neighborhood /=
+    4;
+
+
+  let value =
+    center -
+    neighborhood;
+
+
+  value =
+    value * 0.5 +
+    0.5;
+
+
+  return Math.max(
+    0,
+    Math.min(
+      1,
+      value
+    )
+  );
+
+}
+
+
+function ditherBlueNoise(
+  imageData,
+  palette
+) {
+
+  const data =
+    imageData.data;
+
+  const width =
+    imageData.width;
+
+  const height =
+    imageData.height;
+
+  const amplitude =
+    95;
+
+
+  for (
+    let y = 0;
+    y < height;
+    y++
+  ) {
+
+    for (
+      let x = 0;
+      x < width;
+      x++
+    ) {
+
+      const index =
+        (
+          y * width +
+          x
+        ) * 4;
+
+
+      const noise =
+        blueNoiseValue(
+          x,
+          y
+        );
+
+
+      const adjustment =
+        (
+          noise -
+          0.5
+        ) *
+        amplitude;
+
+
+      const r =
+        clamp255(
+          data[index] +
+          adjustment
+        );
+
+      const g =
+        clamp255(
+          data[index + 1] +
+          adjustment
+        );
+
+      const b =
+        clamp255(
+          data[index + 2] +
+          adjustment
+        );
+
+
+      const selected =
+        nearestColor(
+          r,
+          g,
+          b,
+          palette
+        ).rgb;
+
+
+      setPixel(
+        data,
+        index,
+        selected
+      );
+
+    }
+
+  }
+
+
+  return imageData;
+
+}
+
+
+/* =========================================================
+ * Pattern
+ * ========================================================= */
+
+function calculateMixRatio(
+  r,
+  g,
+  b,
+  colorA,
+  colorB
+) {
+
+  const ar =
+    colorA[0];
+
+  const ag =
+    colorA[1];
+
+  const ab =
+    colorA[2];
+
+
+  const dr =
+    colorB[0] - ar;
+
+  const dg =
+    colorB[1] - ag;
+
+  const db =
+    colorB[2] - ab;
+
+
+  const denominator =
+    (
+      dr * dr +
+      dg * dg +
+      db * db
+    );
+
+
+  if (
+    denominator === 0
+  ) {
+
+    return 0;
+
+  }
+
+
+  let t =
+    (
+      (r - ar) * dr +
+      (g - ag) * dg +
+      (b - ab) * db
+    ) /
+    denominator;
+
+
+  t =
+    Math.max(
+      0,
+      Math.min(
+        1,
+        t
+      )
+    );
+
+
+  return t;
+
+}
+
+
+function ditherPattern(
+  imageData,
+  palette
+) {
+
+  const data =
+    imageData.data;
+
+  const width =
+    imageData.width;
+
+  const height =
+    imageData.height;
+
+
+  for (
+    let y = 0;
+    y < height;
+    y++
+  ) {
+
+    for (
+      let x = 0;
+      x < width;
+      x++
+    ) {
+
+      const index =
+        (
+          y * width +
+          x
+        ) * 4;
+
+
+      const r =
+        data[index];
+
+      const g =
+        data[index + 1];
+
+      const b =
+        data[index + 2];
+
+
+      const [
+        first,
+        second
+      ] =
+        twoNearestColors(
+          r,
+          g,
+          b,
+          palette
+        );
+
+
+      if (
+        palette.length === 1
+      ) {
+
+        setPixel(
+          data,
+          index,
+          first.rgb
+        );
+
+        continue;
+
+      }
+
+
+      const mix =
+        calculateMixRatio(
+          r,
+          g,
+          b,
+          first.rgb,
+          second.rgb
+        );
+
+
+      const threshold =
+        (
+          BAYER_4X4[
+            y % 4
+          ][
+            x % 4
+          ] +
+          0.5
+        ) /
+        16;
+
+
+      const selected =
+        (
+          mix >
+          threshold
+        )
+          ? second.rgb
+          : first.rgb;
+
+
+      setPixel(
+        data,
+        index,
+        selected
+      );
+
+    }
+
+  }
+
+
+  return imageData;
+
+}
+
+
+/* =========================================================
+ * 変換
+ * ========================================================= */
+
+function convertImage(
+  imageData,
+  palette,
+  mode
+) {
+
+  switch (mode) {
+
+    case "fs":
+
+      return ditherFS(
+        imageData,
+        palette,
+        Number(
+          ditherStrength.value
+        )
+      );
+
+
+    case "bayer":
+
+      return ditherBayer(
+        imageData,
+        palette
+      );
+
+
+    case "blue-noise":
+
+      return ditherBlueNoise(
+        imageData,
+        palette
+      );
+
+
+    case "pattern":
+
+      return ditherPattern(
+        imageData,
+        palette
+      );
+
+
+    case "none":
+
+      return ditherNone(
+        imageData,
+        palette
+      );
+
+
+    default:
+
+      throw new Error(
+        `Unknown mode: ${mode}`
+      );
+
+  }
+
+}
+
+
+/* =========================================================
+ * Convert
+ * ========================================================= */
+
+convertButton.addEventListener(
+  "click",
+  () => {
+
+    if (!sourceImage) {
+
+      alert(
+        "画像を選択してください。"
+      );
+
+      return;
+
+    }
+
+
+    const palette =
+      getSelectedPalette();
+
+
+    if (
+      palette.length === 0
+    ) {
+
+      alert(
+        "最低1色を選択してください。"
+      );
+
+      return;
+
+    }
+
+
+    /*
+     * 変換前Canvasは変更しない。
+     * 変換後Canvasだけ元画像から再生成する。
+     */
+    drawImageToCanvas(
+      sourceImage,
+      outputCtx
+    );
+
+
+    const imageData =
+      outputCtx.getImageData(
+        0,
+        0,
+        WIDTH,
+        HEIGHT
+      );
+
+
+    const mode =
+      ditherMode.value;
+
+
+    const start =
+      performance.now();
+
+
+    const result =
+      convertImage(
+        imageData,
+        palette,
+        mode
+      );
+
+
+    outputCtx.putImageData(
+      result,
+      0,
+      0
+    );
+
+
+    const elapsed =
+      performance.now() -
+      start;
+
+
+    const colorNames =
+      palette
+        .map(x => x.name)
+        .join(", ");
+
+
+    let text =
+      `Mode     : ${mode}\n` +
+      `Colors   : ${colorNames}\n` +
+      `Size     : ${WIDTH} × ${HEIGHT}\n` +
+      `Time     : ${elapsed.toFixed(1)} ms`;
+
+
+    if (
+      mode === "fs"
+    ) {
+
+      text +=
+        `\nStrength : ${Number(
+          ditherStrength.value
+        ).toFixed(2)}`;
+
+    }
+
+
+    status.textContent =
+      text;
+
+
+    downloadButton.disabled =
+      false;
+
+  }
+);
+
+
+/* =========================================================
+ * PNG保存
+ * ========================================================= */
+
+downloadButton.addEventListener(
+  "click",
+  () => {
+
+    const mode =
+      ditherMode.value;
+
+    const colors =
+      colorChecks
+        .filter(x => x.checked)
+        .map(x => x.value)
+        .join("");
+
+
+    let filename =
+      `epaper_${colors}_${mode}`;
+
+
+    if (
+      mode === "fs"
+    ) {
+
+      filename +=
+        `_strength-${Number(
+          ditherStrength.value
+        ).toFixed(2)}`;
+
+    }
+
+
+    filename +=
+      ".png";
+
+
+    outputCanvas.toBlob(
+      blob => {
+
+        if (!blob) {
+          return;
+        }
+
+
+        const url =
+          URL.createObjectURL(
+            blob
+          );
+
+
+        const link =
+          document.createElement(
+            "a"
+          );
+
+
+        link.href =
+          url;
+
+        link.download =
+          filename;
+
+
+        document.body.appendChild(
+          link
+        );
+
+
+        link.click();
+
+        link.remove();
+
+
+        URL.revokeObjectURL(
+          url
+        );
+
+      },
+      "image/png"
+    );
+
+  }
+);
+
+
+/* =========================================================
+ * 初期状態
+ * ========================================================= */
+
+updateColorCode();
+updateModeUI();
+
+</script>
+
+</body>
+</html>
