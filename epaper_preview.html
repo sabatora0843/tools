@@ -122,11 +122,22 @@
 
   canvas {
     display: block;
-    width: 480px;
-    height: 720px;
     max-width: 100%;
+    height: auto;
     border: 1px solid #888;
     background: white;
+  }
+
+  .size-inputs {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .size-inputs input[type="number"] {
+    width: 90px;
+    padding: 6px;
   }
 
   #status {
@@ -154,6 +165,36 @@
       type="file"
       accept="image/png,image/jpeg"
     >
+  </div>
+
+
+  <div class="row">
+
+    <span class="title">
+      出力サイズ
+    </span>
+
+    <div class="size-inputs">
+
+      <input
+        id="widthInput"
+        type="number"
+        min="1"
+        max="4000"
+        value="480"
+      >
+      ×
+      <input
+        id="heightInput"
+        type="number"
+        min="1"
+        max="4000"
+        value="720"
+      >
+      px
+
+    </div>
+
   </div>
 
 
@@ -369,8 +410,8 @@
  * 基本設定
  * ========================================================= */
 
-const WIDTH = 480;
-const HEIGHT = 720;
+let WIDTH = 480;
+let HEIGHT = 720;
 
 
 const COLOR_TABLE = {
@@ -422,6 +463,12 @@ const BAYER_4X4 = [
 
 const fileInput =
   document.getElementById("fileInput");
+
+const widthInput =
+  document.getElementById("widthInput");
+
+const heightInput =
+  document.getElementById("heightInput");
 
 const ditherMode =
   document.getElementById("ditherMode");
@@ -506,6 +553,82 @@ function updateModeUI() {
       ? "block"
       : "none";
 }
+
+
+function applyCanvasSize() {
+
+  sourceCanvas.width =
+    WIDTH;
+
+  sourceCanvas.height =
+    HEIGHT;
+
+  outputCanvas.width =
+    WIDTH;
+
+  outputCanvas.height =
+    HEIGHT;
+
+}
+
+
+function updateSize() {
+
+  const width =
+    Math.max(
+      1,
+      Math.round(
+        Number(widthInput.value)
+      ) || WIDTH
+    );
+
+  const height =
+    Math.max(
+      1,
+      Math.round(
+        Number(heightInput.value)
+      ) || HEIGHT
+    );
+
+  WIDTH = width;
+  HEIGHT = height;
+
+  applyCanvasSize();
+
+  if (sourceImage) {
+
+    drawImageToCanvas(
+      sourceImage,
+      sourceCtx
+    );
+
+    drawImageToCanvas(
+      sourceImage,
+      outputCtx
+    );
+
+    downloadButton.disabled =
+      true;
+
+    status.textContent =
+      `Source : ${sourceImage.naturalWidth} × ${sourceImage.naturalHeight}\n` +
+      `Preview: ${WIDTH} × ${HEIGHT}`;
+
+  }
+
+}
+
+
+widthInput.addEventListener(
+  "change",
+  updateSize
+);
+
+
+heightInput.addEventListener(
+  "change",
+  updateSize
+);
 
 
 function updateColorCode() {
@@ -2023,6 +2146,7 @@ downloadButton.addEventListener(
  * 初期状態
  * ========================================================= */
 
+applyCanvasSize();
 updateColorCode();
 updateModeUI();
 
